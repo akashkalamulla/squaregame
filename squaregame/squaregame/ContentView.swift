@@ -7,18 +7,6 @@
 
 import SwiftUI
 
-struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "circle")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
 
 struct ContentView1: View {
     var body: some View {
@@ -34,6 +22,5 @@ struct ContentView1: View {
 }
 
 #Preview {
-    ContentView()
     ContentView1()
 }
