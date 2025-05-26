@@ -41,12 +41,30 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Player: \(playerName)").font(.title2)
-            Text("Level \(level)").font(.largeTitle)
-            Text("Time: \(timeRemaining)")
-            Text("Score: \(score)")
-            Text("Matches: \(matchesThisRound)/\(matchGoal)")
-            Text("Total Matches: \(totalMatches)")
+            if gameStarted {
+                Text("Time: \(timeRemaining)")
+                Text("Score: \(score)")
+            } else {
+                if !playerName.isEmpty {
+                    Text("Player: \(playerName)").font(.title2)
+                }
+                Text("Level \(level)").font(.largeTitle)
+                Text("Time: \(timeRemaining)")
+                Text("Score: \(score)")
+                Text("Matches: \(matchesThisRound)/\(matchGoal)")
+                Text("Total Matches: \(totalMatches)")
+
+                if !roundHistory.isEmpty {
+                    VStack(alignment: .leading) {
+                        Text("Game History").font(.headline)
+                        ForEach(roundHistory) { round in
+                            Text("Round \(round.round): Matches = \(round.matches), Score = \(round.score)")
+                                .font(.subheadline)
+                        }
+                    }
+                    .padding()
+                }
+            }
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: Int(sqrt(Double(tileCount)))), spacing: 16) {
                 ForEach(tiles) { tile in
@@ -68,17 +86,6 @@ struct ContentView: View {
                 startGame()
             }
             .padding()
-
-            if !roundHistory.isEmpty {
-                VStack(alignment: .leading) {
-                    Text("Game History").font(.headline)
-                    ForEach(roundHistory) { round in
-                        Text("Round \(round.round): Matches = \(round.matches), Score = \(round.score)")
-                            .font(.subheadline)
-                    }
-                }
-                .padding()
-            }
         }
         .padding()
         .onAppear {
