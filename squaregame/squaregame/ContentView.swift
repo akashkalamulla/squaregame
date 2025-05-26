@@ -9,25 +9,44 @@ struct Tile: Identifiable {
     var isMatched: Bool = false
 }
 
+struct RoundRecord: Identifiable, Codable {
+    let id = UUID()
+    let round: Int
+    let matches: Int
+    let score: Int
+}
+
+struct PlayerData: Codable {
+    var name: String
+    var history: [RoundRecord]
+}
+
 struct ContentView: View {
+    @AppStorage("playerName") private var playerName: String = ""
+    @State private var showNamePrompt = true
     @State private var tiles: [Tile] = []
     @State private var selectedTile: UUID? = nil
     @State private var score = 0
     @State private var timeRemaining = 30
     @State private var level = 1
     @State private var matchesThisRound = 0
+    @State private var totalMatches = 0
     @State private var gameOver = false
     @State private var gameStarted = false
-    @State private var tileCount = 18 // 3x3 grid = 9 tiles → 4 pairs + 1 extra
+    @State private var tileCount = 18
+    @State private var roundHistory: [RoundRecord] = []
+
     let matchGoal = 10
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 16) {
+            Text("Player: \(playerName)").font(.title2)
             Text("Level \(level)").font(.largeTitle)
             Text("Time: \(timeRemaining)")
             Text("Score: \(score)")
             Text("Matches: \(matchesThisRound)/\(matchGoal)")
+            Text("Total Matches: \(totalMatches)")
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: Int(sqrt(Double(tileCount)))), spacing: 16) {
                 ForEach(tiles) { tile in
@@ -49,18 +68,46 @@ struct ContentView: View {
                 startGame()
             }
             .padding()
+
+            if !roundHistory.isEmpty {
+                VStack(alignment: .leading) {
+                    Text("Game History").font(.headline)
+                    ForEach(roundHistory) { round in
+                        Text("Round \(round.round): Matches = \(round.matches), Score = \(round.score)")
+                            .font(.subheadline)
+                    }
+                }
+                .padding()
+            }
         }
         .padding()
+        .onAppear {
+            loadPlayerData()
+        }
         .onReceive(timer) { _ in
             if gameStarted && timeRemaining > 0 {
                 timeRemaining -= 1
             } else if gameStarted {
-                gameOver = true
-                gameStarted = false
+                endGame()
             }
         }
+        .alert("Enter Player Name", isPresented: $showNamePrompt, actions: {
+            TextField("Player Name", text: $playerName)
+            Button("OK") {
+                savePlayerData()
+            }
+        }, message: {
+            Text("Please enter your name to start the game")
+        })
         .alert(isPresented: $gameOver) {
-            Alert(title: Text("Game Complete!"), message: Text("Your score: \(score)"), dismissButton: .default(Text("OK")))
+            Alert(
+                title: Text("Game Complete!"),
+                message: Text("Player: \(playerName)\nScore: \(score)\nTotal Matches: \(totalMatches)"),
+                dismissButton: .default(Text("OK")) {
+                    playerName = ""
+                    showNamePrompt = true
+                }
+            )
         }
     }
 
@@ -71,8 +118,17 @@ struct ContentView: View {
         gameOver = false
         level = 1
         matchesThisRound = 0
+        totalMatches = 0
         tileCount = 18
+        roundHistory = []
         generateTiles()
+    }
+
+    func endGame() {
+        gameOver = true
+        gameStarted = false
+        roundHistory.append(RoundRecord(round: level, matches: matchesThisRound, score: score))
+        savePlayerData()
     }
 
     func generateTiles() {
@@ -99,8 +155,10 @@ struct ContentView: View {
                 tiles[secondIndex].isMatched = true
                 score += 10
                 matchesThisRound += 1
+                totalMatches += 1
 
                 if matchesThisRound >= matchGoal {
+                    roundHistory.append(RoundRecord(round: level, matches: matchesThisRound, score: score))
                     let bonusTime = max(0, timeRemaining - 5)
                     score += bonusTime
                     level += 1
@@ -109,13 +167,26 @@ struct ContentView: View {
                     matchesThisRound = 0
                     generateTiles()
                 } else if tiles.allSatisfy({ $0.isMatched }) {
-                    // Generate a new board to continue matching
                     generateTiles()
                 }
             }
             selectedTile = nil
         } else {
             selectedTile = tile.id
+        }
+    }
+
+    func savePlayerData() {
+        let data = PlayerData(name: playerName, history: roundHistory)
+        if let encoded = try? JSONEncoder().encode(data) {
+            UserDefaults.standard.set(encoded, forKey: "player_\(playerName)")
+        }
+    }
+
+    func loadPlayerData() {
+        if let savedData = UserDefaults.standard.data(forKey: "player_\(playerName)"),
+           let loaded = try? JSONDecoder().decode(PlayerData.self, from: savedData) {
+            roundHistory = loaded.history
         }
     }
 }
